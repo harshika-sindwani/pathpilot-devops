@@ -44,8 +44,44 @@ function App() {
   }
 
   useEffect(() => {
-    loadData();
-  }, []);
+  let cancelled = false;
+
+  async function fetchInitialData() {
+    try {
+      const [appsResponse, statsResponse] = await Promise.all([
+        fetch(`${API}/applications`),
+        fetch(`${API}/dashboard`),
+      ]);
+
+      if (!appsResponse.ok || !statsResponse.ok) {
+        throw new Error("Could not load dashboard data.");
+      }
+
+      const apps = await appsResponse.json();
+      const dashboardStats = await statsResponse.json();
+
+      if (!cancelled) {
+        setApplications(apps);
+        setStats(dashboardStats);
+        setError("");
+      }
+    } catch {
+      if (!cancelled) {
+        setError("Cannot connect to Flask. Check that the backend is running.");
+      }
+    } finally {
+      if (!cancelled) {
+        setLoading(false);
+      }
+    }
+  }
+
+  fetchInitialData();
+
+  return () => {
+    cancelled = true;
+  };
+}, []);
 
   async function addApplication(event) {
     event.preventDefault();

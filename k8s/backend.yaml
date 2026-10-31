@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pathpilot-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pathpilot-backend
+  template:
+    metadata:
+      labels:
+        app: pathpilot-backend
+    spec:
+      containers:
+        - name: backend
+          image: placement-tracker-backend:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5000
+          env:
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: pathpilot-db-secret
+                  key: POSTGRES_PASSWORD
+            - name: DATABASE_URL
+              value: "postgresql+psycopg://placement_user:$(POSTGRES_PASSWORD)@pathpilot-postgres:5432/placement_tracker"
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 5000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pathpilot-backend
+spec:
+  type: NodePort
+  selector:
+    app: pathpilot-backend
+  ports:
+    - port: 5000
+      targetPort: 5000
+      nodePort: 30080

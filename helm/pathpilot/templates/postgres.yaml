@@ -1,0 +1,81 @@
+{{- if .Values.postgres.enabled }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: pathpilot-postgres
+  labels:
+    app: pathpilot-postgres
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    meta.helm.sh/release-name: pathpilot
+    meta.helm.sh/release-namespace: default
+spec:
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Retain
+    whenScaled: Retain
+  serviceName: pathpilot-postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pathpilot-postgres
+  template:
+    metadata:
+      labels:
+        app: pathpilot-postgres
+    spec:
+      containers:
+        - name: postgres
+          image: "{{ .Values.postgres.image.repository }}:{{ .Values.postgres.image.tag }}"
+          imagePullPolicy: {{ .Values.postgres.image.pullPolicy }}
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: {{ .Values.postgres.database | quote }}
+            - name: POSTGRES_USER
+              value: {{ .Values.postgres.username | quote }}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.postgres.existingSecret }}
+                  key: {{ .Values.postgres.passwordKey }}
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          resources:
+            {}
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+      volumes:
+        - name: postgres-data
+          persistentVolumeClaim:
+            claimName: {{ .Values.postgres.persistence.existingClaim }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pathpilot-postgres
+  labels:
+    app: pathpilot-postgres
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    meta.helm.sh/release-name: pathpilot
+    meta.helm.sh/release-namespace: default
+spec:
+  type: ClusterIP
+  selector:
+    app: pathpilot-postgres
+  ports:
+    - port: {{ .Values.postgres.service.port }}
+      targetPort: 5432
+{{- end }}

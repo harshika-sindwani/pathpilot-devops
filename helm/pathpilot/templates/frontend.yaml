@@ -28,14 +28,18 @@ spec:
             httpGet:
               path: /
               port: 80
-            initialDelaySeconds: 5
-            periodSeconds: 5
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
           livenessProbe:
             httpGet:
               path: /
               port: 80
-            initialDelaySeconds: 10
-            periodSeconds: 10
+            initialDelaySeconds: 15
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
           resources:
             {{- toYaml .Values.frontend.resources | nindent 12 }}
 ---

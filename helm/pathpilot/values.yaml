@@ -4,9 +4,9 @@
 frontend:
   replicaCount: 1
   image:
-    repository: placement-tracker-frontend
-    tag: prod
-    pullPolicy: IfNotPresent
+    repository: harshika274/pathpilot-frontend
+    tag: latest
+    pullPolicy: Always
   service:
     type: NodePort
     port: 80
@@ -23,9 +23,9 @@ frontend:
 backend:
   replicaCount: 1
   image:
-    repository: placement-tracker-backend
+    repository: harshika274/pathpilot-backend
     tag: latest
-    pullPolicy: IfNotPresent
+    pullPolicy: Always
   service:
     type: NodePort
     port: 5000

@@ -1,3 +1,4 @@
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -6,8 +7,8 @@ metadata:
     app: pathpilot-frontend
     app.kubernetes.io/managed-by: Helm
   annotations:
-    meta.helm.sh/release-name: pathpilot
-    meta.helm.sh/release-namespace: default
+    meta.helm.sh/release-name: {{ .Release.Name }}
+    meta.helm.sh/release-namespace: {{ .Release.Namespace }}
 spec:
   replicas: {{ .Values.frontend.replicaCount }}
   selector:
@@ -51,8 +52,8 @@ metadata:
     app: pathpilot-frontend
     app.kubernetes.io/managed-by: Helm
   annotations:
-    meta.helm.sh/release-name: pathpilot
-    meta.helm.sh/release-namespace: default
+    meta.helm.sh/release-name: {{ .Release.Name }}
+    meta.helm.sh/release-namespace: {{ .Release.Namespace }}
 spec:
   type: {{ .Values.frontend.service.type }}
   selector:

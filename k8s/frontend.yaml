@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: placement-tracker-frontend:prod
+          image: harshika274/pathpilot-frontend:k8s
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80

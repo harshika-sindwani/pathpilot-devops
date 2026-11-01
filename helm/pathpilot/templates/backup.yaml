@@ -1,0 +1,78 @@
+
+{{- if .Values.backup.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: pathpilot-backup-pvc
+  annotations:
+    helm.sh/resource-policy: keep
+  labels:
+    app: pathpilot-backup
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.backup.persistence.size }}
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: pathpilot-postgres-backup
+  labels:
+    app: pathpilot-backup
+spec:
+  schedule: {{ .Values.backup.schedule | quote }}
+  timeZone: {{ .Values.backup.timeZone | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 2
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app: pathpilot-backup
+        spec:
+          restartPolicy: Never
+          containers:
+            - name: postgres-backup
+              image: postgres:17
+              imagePullPolicy: IfNotPresent
+              env:
+                - name: PGHOST
+                  value: pathpilot-postgres
+                - name: PGPORT
+                  value: "5432"
+                - name: PGDATABASE
+                  value: {{ .Values.postgres.database | quote }}
+                - name: PGUSER
+                  value: {{ .Values.postgres.username | quote }}
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: {{ .Values.postgres.existingSecret }}
+                      key: {{ .Values.postgres.passwordKey }}
+                - name: TZ
+                  value: {{ .Values.backup.timeZone | quote }}
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -eu
+                  FILE="/backups/placement_tracker-$(date +%Y%m%d-%H%M%S).dump"
+                  echo "Starting PostgreSQL backup..."
+                  pg_dump -Fc -f "$FILE"
+                  echo "Backup completed: $FILE"
+                  find /backups -type f -name 'placement_tracker-*.dump' -mtime +{{ .Values.backup.retentionDays }} -delete
+                  echo "Old backups cleaned up."
+              volumeMounts:
+                - name: backup-storage
+                  mountPath: /backups
+          volumes:
+            - name: backup-storage
+              persistentVolumeClaim:
+                claimName: pathpilot-backup-pvc
+{{- end }}

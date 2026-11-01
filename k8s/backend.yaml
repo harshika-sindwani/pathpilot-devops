@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: backend
-          image: placement-tracker-backend:latest
+          image: harshika274/pathpilot-backend:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 5000

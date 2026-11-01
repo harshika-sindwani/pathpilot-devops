@@ -1,3 +1,4 @@
+
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -6,8 +7,8 @@ metadata:
     app: pathpilot-backend
     app.kubernetes.io/managed-by: Helm
   annotations:
-    meta.helm.sh/release-name: pathpilot
-    meta.helm.sh/release-namespace: default
+    meta.helm.sh/release-name: {{ .Release.Name }}
+    meta.helm.sh/release-namespace: {{ .Release.Namespace }}
 spec:
   replicas: {{ .Values.backend.replicaCount }}
   selector:
@@ -32,6 +33,13 @@ spec:
                   key: {{ .Values.backend.database.passwordKey }}
             - name: DATABASE_URL
               value: "postgresql+psycopg://{{ .Values.backend.database.username }}:$(POSTGRES_PASSWORD)@{{ .Values.backend.database.host }}:{{ .Values.backend.database.port }}/{{ .Values.backend.database.name }}"
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 30
           readinessProbe:
             httpGet:
               path: /ready
@@ -57,8 +65,8 @@ metadata:
     app: pathpilot-backend
     app.kubernetes.io/managed-by: Helm
   annotations:
-    meta.helm.sh/release-name: pathpilot
-    meta.helm.sh/release-namespace: default
+    meta.helm.sh/release-name: {{ .Release.Name }}
+    meta.helm.sh/release-namespace: {{ .Release.Namespace }}
 spec:
   type: {{ .Values.backend.service.type }}
   selector:

@@ -1,4 +1,4 @@
-﻿# PathPilot â€“ Cloud-Native Placement Tracker
+﻿# PathPilot Cloud-Native Placement Tracker
 
 A cloud-native placement tracking application built using React, Flask, PostgreSQL, Docker, Kubernetes, Helm, Terraform, and GitHub Actions.
 

@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
   backend-checks:
     name: Backend checks
@@ -31,7 +34,6 @@ jobs:
 
       - name: Check Python syntax
         run: python -m py_compile app.py models.py
-
 
       - name: Run backend tests
         run: pytest -v tests/test_app.py
@@ -63,8 +65,9 @@ jobs:
 
       - name: Build React frontend
         run: npm run build
+
   docker-build:
-    name: Build Docker images
+    name: Build production Docker images
     runs-on: ubuntu-latest
 
     needs: [backend-checks, frontend-checks]
@@ -80,12 +83,14 @@ jobs:
             -t pathpilot-backend:ci \
             .
 
-      - name: Build frontend image
+      - name: Build frontend production image
         run: |
           docker build \
-            -f frontend/Dockerfile \
+            -f frontend/Dockerfile.prod \
+            --build-arg VITE_API_URL=/api/v1 \
             -t pathpilot-frontend:ci \
             .
+
   docker-publish:
     name: Publish images to Docker Hub
     runs-on: ubuntu-latest
@@ -110,11 +115,13 @@ jobs:
             echo "DOCKERHUB_USERNAME is missing"
             exit 1
           fi
+
           if [ -z "$DOCKERHUB_TOKEN" ]; then
             echo "DOCKERHUB_TOKEN is missing"
             exit 1
           fi
-          echo "Both Docker Hub secrets are available"     
+
+          echo "Both Docker Hub secrets are available"
 
       - name: Login to Docker Hub
         uses: docker/login-action@v3
@@ -143,3 +150,50 @@ jobs:
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/pathpilot-frontend:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/pathpilot-frontend:sha-${{ github.sha }}
+
+  deploy:
+    name: Deploy PathPilot to Kubernetes
+    runs-on: self-hosted
+
+    needs: [docker-publish]
+
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    env:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+      IMAGE_TAG: sha-${{ github.sha }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Verify Kubernetes connection
+        shell: pwsh
+        run: |
+          $context = kubectl config current-context
+
+          if ($context -ne "docker-desktop") {
+            throw "Wrong Kubernetes context: $context"
+          }
+
+          kubectl get nodes
+
+      - name: Deploy using Helm
+        shell: pwsh
+        run: |
+          helm upgrade --install pathpilot ./helm/pathpilot `
+            --namespace pathpilot-helm `
+            --reuse-values `
+            --set-string "backend.image.repository=$env:DOCKERHUB_USERNAME/pathpilot-backend" `
+            --set-string "backend.image.tag=$env:IMAGE_TAG" `
+            --set-string "frontend.image.repository=$env:DOCKERHUB_USERNAME/pathpilot-frontend" `
+            --set-string "frontend.image.tag=$env:IMAGE_TAG" `
+            --wait `
+            --timeout 5m
+
+      - name: Verify deployment
+        shell: pwsh
+        run: |
+          kubectl rollout status deployment/pathpilot-backend -n pathpilot-helm --timeout=180s
+          kubectl rollout status deployment/pathpilot-frontend -n pathpilot-helm --timeout=180s
+          kubectl get pods -n pathpilot-helm

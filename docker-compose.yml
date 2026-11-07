@@ -27,11 +27,17 @@ services:
     restart: unless-stopped
 
   frontend:
-    image: harshika274/pathpilot-frontend:latest
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    image: pathpilot-frontend-local
     environment:
       VITE_API_URL: http://localhost:5000/api/v1
     ports:
       - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
     depends_on:
       - backend
     restart: unless-stopped
